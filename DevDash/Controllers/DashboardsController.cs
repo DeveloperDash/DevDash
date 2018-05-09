@@ -59,10 +59,7 @@ namespace DevDash.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> AddNewIssue()
-        {
-            return PartialView();
-        }
+        public async Task<ActionResult> AddNewIssue() => PartialView();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
