@@ -11,16 +11,15 @@ using Microsoft.Extensions.Configuration;
 
 namespace DevDash.Controllers
 {
+    //Removed the trello auth flow to remove backend dependencies on Trello
     public class AuthenticationController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly GitHubAPI _gitHubApi;
-        private readonly TrelloAPI _trelloApi;
 
         public AuthenticationController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IConfiguration configuration)
         {
             _gitHubApi = new GitHubAPI(configuration);
-            _trelloApi = new TrelloAPI(configuration);
             _userManager = userManager;
         }
 
@@ -28,25 +27,19 @@ namespace DevDash.Controllers
         {
             var user = await _userManager.GetUserAsync(User);
 
-            if (user.GithubAuthenticated && user.TrelloAuthenticated)
+            if (user.GithubAuthenticated)
             {
                 HttpContext.Session.TryGetValue("GithubToken", out byte[] tokenArray);
                 if (tokenArray == null) return Redirect(_gitHubApi.GitHubAuthURL());
-                var trelloToken = user.TrelloKey;
-                HttpContext.Session.SetString("TrelloToken", trelloToken);
                 return RedirectToAction("Index", "ApplicationHome");
 
             }
 
             string githubAuthUrl = _gitHubApi.GitHubAuthURL();
-            string trelloAuthUrl = _trelloApi.GetTrelloAuthUrl();
             AuthorizationViewModel vm = new AuthorizationViewModel
             {
                 GithubAuthURL = githubAuthUrl,
-                TrelloAuthURL = trelloAuthUrl,
                 GithubAuthorized = user.GithubAuthenticated,
-                TrelloAuthorized = user.TrelloAuthenticated
-
             };
             return View(vm);
         }
@@ -63,23 +56,5 @@ namespace DevDash.Controllers
             await _userManager.UpdateAsync(user);
             return RedirectToAction("Index");
         }
-
-        public IActionResult AuthorizeTrelloAjax()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> AuthorizeTrello()
-        {
-            string id = Request.Form["trelloToken"];
-            var user = await _userManager.GetUserAsync(User);
-            HttpContext.Session.SetString("TrelloToken", id);
-            user.TrelloKey = id;
-            user.TrelloAuthenticated = true;
-            await _userManager.UpdateAsync(user);
-            return Json(new {result = "Redirect", url = Url.Action("Index", "Authentication") });
-        }
-
     }
 }

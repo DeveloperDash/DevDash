@@ -18,13 +18,11 @@ namespace DevDash.Controllers
         private readonly ApplicationDbContext _context;
         private UserManager<ApplicationUser> _userManager;
         GitHubAPI gitHubAPI;
-        TrelloAPI trelloApi;
 
 
         public ApplicationHomeController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IConfiguration Configuration)
         {
             gitHubAPI = new GitHubAPI(Configuration);
-            trelloApi = new TrelloAPI(Configuration);
             _context = context;
             _userManager = userManager;
         }
@@ -32,12 +30,10 @@ namespace DevDash.Controllers
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
-            var trelloToken = user.TrelloKey;
             HttpContext.Session.TryGetValue("GithubToken", out byte[] githubTokenByteArray);
             var githubToken = System.Text.Encoding.Default.GetString(githubTokenByteArray);
 
             var repos = await gitHubAPI.getRepositoriesAsync(githubToken);
-            var boards = trelloApi.GetUserTrelloBoards(trelloToken);
 
             var repoSelectListItem = new List<SelectListItem>();
             var boardSelectListItem = new List<SelectListItem>();
@@ -54,25 +50,11 @@ namespace DevDash.Controllers
                 repoSelectListItem.Add(new SelectListItem { Text = repo.Name, Value = repo.Id.ToString() });
             }
 
-            foreach(TrelloNet.Board board in boards)
-            {
-                Trello trello = new Trello
-                {
-                    UserId = user.Id,
-                    BoardId = board.Id,
-                    BoardName = board.Name,
-                };
-                _context.Trello.AddIfNotExists(trello, t => t.UserId == user.Id && t.BoardId == board.Id);
-                boardSelectListItem.Add(new SelectListItem { Text = board.Name, Value = board.Id});
-
-            }
-
 
             await _context.SaveChangesAsync();
             _context.Entry(user).Collection(x => x.Dashboard).Load();
             var dashboards = user.Dashboard;
             var repoSelectList = new SelectList(repoSelectListItem, "Value", "Text");
-            var boardSelectList = new SelectList(boardSelectListItem, "Value", "Text");
 
             ApplicationHomeViewModel appviewmodel = new ApplicationHomeViewModel
             {
